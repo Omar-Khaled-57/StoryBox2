@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #020617; /* surface-950 */
+    --bg-secondary: #0f172a; /* surface-900 */
+    --bg-tertiary: #1e293b; /* surface-800 */
+    
+    --text-primary: #f8fafc; /* surface-50 */
+    --text-secondary: #94a3b8; /* surface-400 */
+    --text-tertiary: #cbd5e1; /* surface-300 */
+
+    --accent-primary: #3b82f6; /* brand-500 */
+    --accent-secondary: #60a5fa; /* brand-400 */
+
+    --border-light: rgba(255, 255, 255, 0.08);
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    overflow: hidden; /* Tauri app shell */
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-brand-600 text-white font-semibold text-sm transition-all duration-300 shadow-lg shadow-brand-500/20 hover:scale-[1.03] hover:shadow-brand-500/40 hover:bg-brand-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
+  }
+
+  .btn-secondary {
+    @apply flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-surface-800 border border-surface-700 text-surface-200 font-medium text-sm transition-all duration-200 hover:bg-surface-700 hover:text-white active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .glass-card {
+    @apply bg-surface-900/60 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden rounded-2xl;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Shimmer animation for loading placeholders */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.animate-shimmer {
+  animation: shimmer 1.6s ease-in-out infinite;
+}
