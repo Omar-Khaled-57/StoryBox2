@@ -1,0 +1,4 @@
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "link-arg=-Wl,--stack,16777216"]
+# We avoid 'linker = "rust-lld"' here to stay on stable flags, 
+# relying on crate-type and LTO to stay under the 65k limit.
