@@ -1,8 +1,11 @@
 pub mod ai;
+pub mod cache;
 pub mod db;
 pub mod processor;
 pub mod scanner;
 pub mod stories;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub mod watcher;
 
 use std::sync::Arc;
 use tauri::{Manager, Emitter};
@@ -163,6 +166,12 @@ pub fn run() {
                 let ai_engine = Arc::new(ai::AIEngine::new(&app_data_dir).unwrap_or_default());
                 handle.manage(ai_engine.clone());
 
+                // Image Cache (LRU)
+                let cache_capacity: usize = if cfg!(target_os = "android") || cfg!(target_os = "ios") { 2500 } else { 10000 };
+                let image_cache = Arc::new(cache::ImageCache::new(cache_capacity));
+                image_cache.load_from_db(&pool, cache_capacity);
+                handle.manage(image_cache.clone());
+
                 // Worker
                 tokio::spawn(processor::start_processing_worker(
                     rx, 
@@ -207,6 +216,18 @@ pub fn run() {
                         let _ = stories::run_automation_tasks(&auto_pool, &auto_handle).await;
                     }
                 });
+
+                // FolderWatcher (desktop only)
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                {
+                    let watcher_tx = tx.clone();
+                    let watcher_state = proc_state.clone();
+                    std::thread::spawn(move || {
+                        if let Err(e) = watcher::start_folder_watcher(watcher_tx, watcher_state) {
+                            eprintln!("[Watcher] Failed to start: {}", e);
+                        }
+                    });
+                }
             });
             Ok(())
         })

@@ -5,6 +5,7 @@ use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use crate::ai::Storyteller;
+use crate::cache::ImageCache;
 use crate::processor::ProcessingState;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -492,12 +493,16 @@ pub async fn get_stories(state: tauri::State<'_, Pool<Sqlite>>) -> Result<Vec<St
 #[tauri::command]
 pub async fn get_cached_image_base64(
     state: tauri::State<'_, Pool<Sqlite>>,
+    image_cache: tauri::State<'_, Arc<ImageCache>>,
     app: tauri::AppHandle, 
     id: String, 
     image_type: String
 ) -> Result<String, String> {
     use tauri::Manager;
     let pool = &*state;
+
+    // Touch the cache entry to keep it warm (LRU reordering)
+    let _ = image_cache.get(&id);
     
     // 1. Try to find the file in the cache directory
     let app_dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;

@@ -67,6 +67,8 @@ function App() {
 
   // Activity list shown in the nav indicator
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [isIndexingPaused, setIsIndexingPaused] = useState(false);
+  const [isAnalysisPaused, setIsAnalysisPaused] = useState(false);
 
   const addActivity = (label: string): string => {
     const id = mkId();
@@ -291,6 +293,28 @@ function App() {
         // Initial check on mount
         invoke<AiHealthStatus>("check_ai_availability").then(setAiHealth).catch(console.error);
 
+        // Poll pause states
+        const statusInterval = setInterval(async () => {
+          try {
+            const status = await invoke<{ is_indexing_paused: boolean; is_analysis_paused: boolean }>("get_ai_status");
+            setIsIndexingPaused(status.is_indexing_paused);
+            setIsAnalysisPaused(status.is_analysis_paused);
+          } catch {}
+        }, 2000);
+        return () => {
+          clearInterval(statusInterval);
+          Promise.all([
+            unlistenIndexing,
+            unlistenAnalysis,
+            unlistenRefresh,
+            unlistenNoPhotos,
+            unlistenMobileScan,
+            unlistenScanComplete,
+            unlistenAiHealth,
+            unlistenStoryUpdated,
+          ]).then(fns => fns.forEach(f => f()));
+        };
+
         return () => {
             Promise.all([
                 unlistenIndexing,
@@ -480,7 +504,7 @@ function App() {
         </div>
 
         {/* Activity Indicator */}
-        <ActivityIndicator activities={activities} />
+        <ActivityIndicator activities={activities} isIndexingPaused={isIndexingPaused} isAnalysisPaused={isAnalysisPaused} />
 
         {/* Landscape-only Add Location Action Button */}
         <div className="hidden sm:flex sm:w-full sm:px-3 sm:mb-4 h-full sm:h-auto items-center">

@@ -308,15 +308,35 @@ async fn index_image(
     let path_str = path.to_string_lossy().to_string();
     let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or("image").to_string();
 
-    // Check if already in DB
-    let existing: Option<(String, bool)> = sqlx::query_as("SELECT id, ai_analyzed FROM images WHERE path = ?")
+    // Change-detection: check file metadata before re-indexing
+    let current_size = std::fs::metadata(&path).ok().map(|m| m.len() as i64);
+    let current_modified = std::fs::metadata(&path).ok()
+        .and_then(|m| m.modified().ok())
+        .map(|t| {
+            let duration = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+            duration.as_secs().to_string()
+        });
+
+    // Check if already in DB with change-detection skip
+    let existing: Option<(String, bool, Option<i64>, Option<String>)> = sqlx::query_as(
+        "SELECT id, ai_analyzed, file_size, file_modified FROM images WHERE path = ?"
+    )
         .bind(&path_str)
         .fetch_optional(pool)
         .await?;
 
     let (id, already_analyzed) = match existing {
-        Some((id, analyzed)) => {
-            // Even if it exists in DB, ensure thumbnails are on disk
+        Some((id, analyzed, db_size, db_modified)) => {
+            // Change-detection: if file unchanged and thumbnails exist, skip entirely
+            if db_size == current_size && db_modified == current_modified {
+                let thumb_path = thumbs_dir.join(format!("{}.jpg", id));
+                let display_path = display_dir.join(format!("{}.jpg", id));
+                if thumb_path.exists() && display_path.exists() {
+                    return Ok(None);
+                }
+            }
+
+            // Even if changed, ensure thumbnails are on disk
             let thumb_path = thumbs_dir.join(format!("{}.jpg", id));
             let display_path = display_dir.join(format!("{}.jpg", id));
             
@@ -337,7 +357,15 @@ async fn index_image(
                     let _ = display.save(&display_dir_clone.join(format!("{}.jpg", id_clone)));
                     Some(())
                 }).await;
-                
+
+                // Update file metadata after regenerating thumbnails
+                let _ = sqlx::query("UPDATE images SET file_size = ?, file_modified = ? WHERE id = ?")
+                    .bind(current_size)
+                    .bind(&current_modified)
+                    .bind(&id)
+                    .execute(pool)
+                    .await;
+
                 (id, analyzed)
             }
         },
@@ -401,13 +429,15 @@ async fn index_image(
             };
 
             sqlx::query(
-                "INSERT INTO images (id, path, date_taken, lat, lon, ai_analyzed) VALUES (?, ?, ?, ?, ?, 0)"
+                "INSERT INTO images (id, path, date_taken, lat, lon, ai_analyzed, file_size, file_modified) VALUES (?, ?, ?, ?, ?, 0, ?, ?)"
             )
             .bind(&id)
             .bind(&path_str)
             .bind(&creation_date)
             .bind(lat)
             .bind(lon)
+            .bind(current_size)
+            .bind(&current_modified)
             .execute(pool)
             .await?;
 

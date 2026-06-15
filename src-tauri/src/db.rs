@@ -44,11 +44,17 @@ async fn create_schema(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
             date_taken DATETIME,
             lat REAL,
             lon REAL,
-            ai_analyzed BOOLEAN DEFAULT 0
+            ai_analyzed BOOLEAN DEFAULT 0,
+            file_size INTEGER,
+            file_modified TEXT
         );",
     )
     .execute(pool)
     .await?;
+
+    // Migration: add file_size and file_modified if missing
+    let _ = sqlx::query("ALTER TABLE images ADD COLUMN file_size INTEGER").execute(pool).await;
+    let _ = sqlx::query("ALTER TABLE images ADD COLUMN file_modified TEXT").execute(pool).await;
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS image_features (

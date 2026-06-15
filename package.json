@@ -2,6 +2,7 @@
   "name": "storybox",
   "private": true,
   "version": "2.1.1",
+  "author": "Omar Khaled <khaledelkhly57@gmail.com>",
   "type": "module",
   "scripts": {
     "dev": "vite",
